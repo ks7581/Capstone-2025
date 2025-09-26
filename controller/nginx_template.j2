@@ -1,0 +1,5 @@
+upstream backend {
+{% for b in backends %}
+    server {{ b.host }}:{{ b.port }} weight={{ b.weight }} max_fails=10 fail_timeout=2s;
+{% endfor %}
+}

@@ -1,0 +1,78 @@
+{
+  "id": null,
+  "title": "Capstone: Self-Healing Load Balancer",
+  "tags": ["capstone", "autoscaling", "controller"],
+  "timezone": "browser",
+  "schemaVersion": 30,
+  "version": 2,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Backend Replicas",
+      "targets": [
+        {
+          "expr": "controller_backends_replicas",
+          "legendFormat": "replicas",
+          "instant": false
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Scale Events",
+      "targets": [
+        { "expr": "controller_scale_out_total", "legendFormat": "Scale Out" },
+        { "expr": "controller_scale_in_total", "legendFormat": "Scale In" }
+      ],
+      "options": { "reduceOptions": { "calcs": ["last"], "fields": "", "values": false } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Average CPU",
+      "targets": [
+        {
+          "expr": "controller_avg_cpu",
+          "legendFormat": "avg_cpu",
+          "instant": false
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Average Latency",
+      "targets": [
+        {
+          "expr": "controller_avg_latency",
+          "legendFormat": "avg_latency_ms",
+          "instant": false
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms", "min": 0 } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Backend CPU per Instance",
+      "targets": [
+        {
+          "expr": "backend_cpu",
+          "legendFormat": "{{instance}}",
+          "instant": false
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Backend Latency (p95)",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(backend_latency_ms_bucket[1m])) by (le))",
+          "legendFormat": "p95 latency",
+          "instant": false
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms", "min": 0 } }
+    }
+  ]
+}

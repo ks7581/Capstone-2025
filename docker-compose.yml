@@ -1,0 +1,101 @@
+services:
+  backend1:
+    build: ./backend
+    image: capstone-backend
+    container_name: backend1
+    ports:
+      - "8081:8080"
+
+  backend2:
+    build: ./backend
+    image: capstone-backend
+    container_name: backend2
+    ports:
+      - "8082:8080"
+
+  nginx1:
+    build: ./nginx1
+    container_name: nginx1
+    volumes:
+      - ./nginx1/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx1/upstream.conf:/etc/nginx/conf.d/upstream.conf
+    depends_on:
+      - backend1
+      - backend2
+    command: >
+      /bin/sh -lc "
+      nginx -g 'daemon off;' &
+      while inotifywait -e close_write,move,create,delete /etc/nginx/conf.d/upstream.conf; do
+        nginx -t && nginx -s reload;
+      done"
+
+  nginx2:
+    build: ./nginx2
+    container_name: nginx2
+    volumes:
+      - ./nginx2/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx2/upstream.conf:/etc/nginx/conf.d/upstream.conf
+    depends_on:
+      - backend1
+      - backend2
+    command: >
+      /bin/sh -lc "
+      nginx -g 'daemon off;' &
+      while inotifywait -e close_write,move,create,delete /etc/nginx/conf.d/upstream.conf; do
+        nginx -t && nginx -s reload;
+      done"
+
+  proxy:
+    image: nginx:latest
+    container_name: proxy
+    ports:
+      - "8080:80"
+    volumes:
+      - ./proxy/proxy.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - nginx1
+      - nginx2
+
+  controller:
+    build: ./controller
+    container_name: controller
+    environment:
+      - PROM_URL=http://prometheus:9090
+      - PYTHONUNBUFFERED=1 
+    volumes:
+      - ./nginx1/upstream.conf:/etc/nginx/conf.d/upstream.conf
+      - ./controller/nginx_template.j2:/controller/nginx_template.j2
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "9105:9105"
+    depends_on:
+      - prometheus
+      - proxy
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend1
+      - backend2
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:0.11.0
+    container_name: nginx-exporter
+    command: -nginx.scrape-uri=http://nginx1:80/nginx_status
+    ports:
+      - "9113:9113"
+    depends_on:
+      - nginx1
